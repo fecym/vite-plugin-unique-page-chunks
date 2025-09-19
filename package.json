@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-unique-page-chunks",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Vite plugin to generate unique chunks for pages with same-named components",
   "type": "module",
   "main": "./dist/index.cjs",
