@@ -34,7 +34,7 @@
   "author": "fecym",
   "license": "ISC",
   "peerDependencies": {
-    "vite": "^7.1.6"
+    "vite": ">=2.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.4",
