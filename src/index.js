@@ -15,7 +15,8 @@ export function uniquePageChunks(options = {}) {
     chunkFileNames = {
       pageChunkPath: 'assets/js/pages/[name]-[hash].js', // 页面chunk路径
       defaultChunkPath: 'assets/js/[name]-[hash].js'     // 其他chunk路径
-    }
+    },
+    pluginPriority = true // true: 插件优先, false: 用户配置优先
   } = options
 
   return {
@@ -36,52 +37,65 @@ export function uniquePageChunks(options = {}) {
       if (typeof existingChunks === 'function') {
         // 如果现有配置是函数，则创建一个新的函数来合并
         const originalFn = existingChunks
-        config.build.rollupOptions.output.manualChunks = (id) => {
-          // 先检查自动生成的页面chunks
+        // 提取检查文件是否匹配页面组件的函数
+        const getPageChunkName = (id) => {
+          // 获取相对于项目根目录的路径
+          const relativePath = `./${relative(process.cwd(), id).replace(/\\/g, '/')}`;
+
+          // 遍历chunks对象，检查文件是否在某个chunk的文件列表中
           for (const [chunkName, files] of Object.entries(chunks)) {
-            if (files.some(file => id.includes(file))) {
-              return chunkName
+            if (files.includes(relativePath)) {
+              return chunkName;
             }
           }
-          // 然后调用原有的函数
-          return originalFn(id)
+          
+          return null;
+        };
+
+        config.build.rollupOptions.output.manualChunks = (id) => {
+          if (pluginPriority) {
+            // 先检查是否匹配页面组件
+            return getPageChunkName(id) || originalFn(id);
+          } else {
+            // 先让用户函数处理
+            return originalFn(id) || getPageChunkName(id);
+          }
         }
       } else {
         // 如果现有配置是对象，则直接合并
-        config.build.rollupOptions.output.manualChunks = {
-          ...existingChunks,
-          ...chunks
-        }
+        config.build.rollupOptions.output.manualChunks = pluginPriority
+          ? {...existingChunks, ...chunks}  // 插件优先
+          : {...chunks, ...existingChunks};
       }
 
       // 处理 chunkFileNames 配置
-      const existingChunkFileNames = config.build.rollupOptions.output.chunkFileNames
-
+      const existingChunkFileNames = config.build.rollupOptions.output.chunkFileNames;
+      
+      // 创建一个处理页面chunk的函数
+      const getChunkFileName = (chunkInfo) => {
+        if (chunkInfo?.name.startsWith(chunkPrefix)) {
+          return chunkFileNames.pageChunkPath;
+        }
+        return null; // 不是页面chunk
+      };
+      
+      // 根据现有配置类型处理
       if (typeof existingChunkFileNames === 'function') {
         // 如果已有函数配置，保留原有逻辑并添加页面chunk处理
-        const originalFn = existingChunkFileNames
+        const originalFn = existingChunkFileNames;
         config.build.rollupOptions.output.chunkFileNames = (chunkInfo) => {
-          if (chunkInfo.name && chunkInfo.name.startsWith(chunkPrefix)) {
-            return chunkFileNames.pageChunkPath
-          }
-          return originalFn(chunkInfo)
-        }
+          return getChunkFileName(chunkInfo) || originalFn(chunkInfo);
+        };
       } else if (typeof existingChunkFileNames === 'string') {
         // 如果已有字符串配置，创建函数来处理
         config.build.rollupOptions.output.chunkFileNames = (chunkInfo) => {
-          if (chunkInfo.name && chunkInfo.name.startsWith(chunkPrefix)) {
-            return chunkFileNames.pageChunkPath
-          }
-          return existingChunkFileNames
-        }
+          return getChunkFileName(chunkInfo) || existingChunkFileNames;
+        };
       } else {
         // 没有现有配置，使用插件的配置
         config.build.rollupOptions.output.chunkFileNames = (chunkInfo) => {
-          if (chunkInfo.name && chunkInfo.name.startsWith(chunkPrefix)) {
-            return chunkFileNames.pageChunkPath
-          }
-          return chunkFileNames.defaultChunkPath
-        }
+          return getChunkFileName(chunkInfo) || chunkFileNames.defaultChunkPath;
+        };
       }
 
       console.log(`🚀 [unique-page-chunks] 自动生成了 ${Object.keys(chunks).length} 个页面chunks:`)
@@ -102,7 +116,6 @@ function scanPageChunks(viewsDir, chunkPrefix, include, exclude) {
 
   try {
     const dirs = readdirSync(viewsPath)
-
     dirs.forEach(dir => {
       const dirPath = resolve(viewsPath, dir)
 
