@@ -31,19 +31,18 @@ describe('vite-plugin-unique-page-chunks', () => {
     // 验证生成的 manualChunks 配置
     const manualChunks = config.build.rollupOptions.output.manualChunks;
     
-    // 应该有三个页面的 chunk
-    expect(Object.keys(manualChunks)).toContain('page-pagea');
-    expect(Object.keys(manualChunks)).toContain('page-pageb');
-    expect(Object.keys(manualChunks)).toContain('page-pagec');
+    // 应该返回正确的 chunk 名称
+    expect(typeof manualChunks).toBe('function');
     
-    // 验证每个 chunk 包含正确的文件
-    expect(manualChunks['page-pagea']).toContainEqual(expect.stringContaining('PageA/index.vue'));
-    expect(manualChunks['page-pageb']).toContainEqual(expect.stringContaining('PageB/index.vue'));
-    expect(manualChunks['page-pagec']).toContainEqual(expect.stringContaining('PageC/index.vue'));
+    // 验证每个页面主文件被正确分配
+    const cwd = process.cwd();
+    expect(manualChunks(resolve(cwd, 'test/fixtures/mock-vite-project/src/views/PageA/index.vue'))).toBe('page-pagea');
+    expect(manualChunks(resolve(cwd, 'test/fixtures/mock-vite-project/src/views/PageB/index.vue'))).toBe('page-pageb');
+    expect(manualChunks(resolve(cwd, 'test/fixtures/mock-vite-project/src/views/PageC/index.vue'))).toBe('page-pagec');
     
     // 验证组件文件被正确包含
-    expect(manualChunks['page-pagea']).toContainEqual(expect.stringContaining('PageA/components/Header.vue'));
-    expect(manualChunks['page-pageb']).toContainEqual(expect.stringContaining('PageB/components/Footer.vue'));
+    expect(manualChunks(resolve(cwd, 'test/fixtures/mock-vite-project/src/views/PageA/components/Header.vue'))).toBe('page-pagea');
+    expect(manualChunks(resolve(cwd, 'test/fixtures/mock-vite-project/src/views/PageB/components/Footer.vue'))).toBe('page-pageb');
   });
   
   it('should respect exclude option', () => {
@@ -60,10 +59,12 @@ describe('vite-plugin-unique-page-chunks', () => {
     
     const manualChunks = config.build.rollupOptions.output.manualChunks;
     
-    // 应该只有两个页面的 chunk
-    expect(Object.keys(manualChunks)).toContain('page-pagea');
-    expect(Object.keys(manualChunks)).toContain('page-pageb');
-    expect(Object.keys(manualChunks)).not.toContain('page-pagec');
+    // 应该正确排除 PageC
+    expect(typeof manualChunks).toBe('function');
+    const cwd = process.cwd();
+    expect(manualChunks(resolve(cwd, 'test/fixtures/mock-vite-project/src/views/PageA/index.vue'))).toBe('page-pagea');
+    expect(manualChunks(resolve(cwd, 'test/fixtures/mock-vite-project/src/views/PageB/index.vue'))).toBe('page-pageb');
+    expect(manualChunks(resolve(cwd, 'test/fixtures/mock-vite-project/src/views/PageC/index.vue'))).toBe(null);
   });
   
   it('should customize chunk file names', () => {

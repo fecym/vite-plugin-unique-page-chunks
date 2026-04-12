@@ -32,41 +32,53 @@ export function uniquePageChunks(options = {}) {
       if (!config.build.rollupOptions.output) config.build.rollupOptions.output = {}
 
       // 合并现有的manualChunks配置
-      const existingChunks = config.build.rollupOptions.output.manualChunks || {}
+      const existingChunks = config.build.rollupOptions.output.manualChunks
 
-      if (typeof existingChunks === 'function') {
-        // 如果现有配置是函数，则创建一个新的函数来合并
-        const originalFn = existingChunks
-        // 提取检查文件是否匹配页面组件的函数
-        const getPageChunkName = (id) => {
-          // 获取相对于项目根目录的路径
-          const relativePath = `./${relative(process.cwd(), id).replace(/\\/g, '/')}`;
+      const getPageChunkName = (id) => {
+        // 去除 id 中的 query 参数（如 ?vue&type=style）
+        const cleanId = id.split('?')[0];
+        // 获取相对于项目根目录的路径
+        const relativePath = `./${relative(process.cwd(), cleanId).replace(/\\/g, '/')}`;
 
-          // 遍历chunks对象，检查文件是否在某个chunk的文件列表中
-          for (const [chunkName, files] of Object.entries(chunks)) {
-            if (files.includes(relativePath)) {
-              return chunkName;
-            }
-          }
-          
-          return null;
-        };
-
-        config.build.rollupOptions.output.manualChunks = (id) => {
-          if (pluginPriority) {
-            // 先检查是否匹配页面组件
-            return getPageChunkName(id) || originalFn(id);
-          } else {
-            // 先让用户函数处理
-            return originalFn(id) || getPageChunkName(id);
+        // 遍历chunks对象，检查文件是否在某个chunk的文件列表中
+        for (const [chunkName, files] of Object.entries(chunks)) {
+          if (files.includes(relativePath)) {
+            return chunkName;
           }
         }
-      } else {
-        // 如果现有配置是对象，则直接合并
-        config.build.rollupOptions.output.manualChunks = pluginPriority
-          ? {...existingChunks, ...chunks}  // 插件优先
-          : {...chunks, ...existingChunks};
-      }
+        
+        return null;
+      };
+
+      const getExistingObjectChunkName = (id, existingObj) => {
+        if (!existingObj) return null;
+        const cleanId = id.split('?')[0];
+        const relativePath = `./${relative(process.cwd(), cleanId).replace(/\\/g, '/')}`;
+        
+        for (const [chunkName, files] of Object.entries(existingObj)) {
+          if (Array.isArray(files) && files.includes(relativePath)) {
+            return chunkName;
+          }
+        }
+        return null;
+      };
+
+      config.build.rollupOptions.output.manualChunks = (id, meta) => {
+        const pluginResult = getPageChunkName(id);
+        
+        let userResult = null;
+        if (typeof existingChunks === 'function') {
+          userResult = existingChunks(id, meta);
+        } else if (existingChunks && typeof existingChunks === 'object') {
+          userResult = getExistingObjectChunkName(id, existingChunks);
+        }
+
+        if (pluginPriority) {
+          return pluginResult || userResult;
+        } else {
+          return userResult || pluginResult;
+        }
+      };
 
       // 处理 chunkFileNames 配置
       const existingChunkFileNames = config.build.rollupOptions.output.chunkFileNames;

@@ -1,5 +1,13 @@
 # 更新日志
 
+## 1.1.0 (2026-04-12)
+
+### 新特性 & Bug 修复
+
+- **兼容性增强**: 完美兼容 Vite 8 及最新的底层打包器 Rolldown。
+- **问题修复**: 修复了在 Vite 8 环境下因 `manualChunks` 不支持对象配置而引发的 `TypeError: manualChunks is not a function` 报错。
+- **重构**: 将 `manualChunks` 配置强制转换为函数模式，同时兼容并合并旧版本 Vite 中用户可能传入的对象或函数类型的配置。
+
 ## 1.0.2 (2025-09-20)
 
 ### Bug 修复
